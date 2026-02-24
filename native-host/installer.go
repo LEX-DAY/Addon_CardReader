@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 const nativeHostName = "com.cardreader.bridge"
@@ -25,7 +26,7 @@ func parseFlags() installConfig {
 	flag.BoolVar(&cfg.DoInstall, "install", false, "install native messaging manifest for current user")
 	flag.StringVar(&cfg.ExtensionID, "extension-id", "", "Chrome extension ID for allowed_origins")
 	flag.StringVar(&cfg.HostPath, "host-path", "", "absolute path to host executable (default: current executable)")
-	flag.StringVar(&cfg.Browser, "browser", "chrome", "target browser: chrome|chromium")
+	flag.StringVar(&cfg.Browser, "browser", "chrome", "target browser: chrome|chromium|edge")
 	flag.Parse()
 	return cfg
 }
@@ -48,7 +49,9 @@ func runInstall(cfg installConfig) error {
 		return fmt.Errorf("resolve host absolute path: %w", err)
 	}
 
-	manifestPath, err := nativeManifestPath(cfg.Browser)
+	browser := strings.ToLower(strings.TrimSpace(cfg.Browser))
+
+	manifestPath, err := nativeManifestPath(browser)
 	if err != nil {
 		return err
 	}
@@ -74,7 +77,7 @@ func runInstall(cfg installConfig) error {
 	}
 
 	if runtime.GOOS == "windows" {
-		if err := registerWindowsNativeHost(cfg.Browser, manifestPath); err != nil {
+		if err := registerWindowsNativeHost(browser, manifestPath); err != nil {
 			return err
 		}
 	}
@@ -97,6 +100,8 @@ func nativeManifestPath(browser string) (string, error) {
 			return filepath.Join(home, ".config", "google-chrome", "NativeMessagingHosts", nativeHostName+".json"), nil
 		case "chromium":
 			return filepath.Join(home, ".config", "chromium", "NativeMessagingHosts", nativeHostName+".json"), nil
+		case "edge":
+			return filepath.Join(home, ".config", "microsoft-edge", "NativeMessagingHosts", nativeHostName+".json"), nil
 		default:
 			return "", fmt.Errorf("unsupported browser: %s", browser)
 		}
@@ -110,6 +115,8 @@ func nativeManifestPath(browser string) (string, error) {
 			return filepath.Join(appData, "Google", "Chrome", "User Data", "NativeMessagingHosts", nativeHostName+".json"), nil
 		case "chromium":
 			return filepath.Join(appData, "Chromium", "User Data", "NativeMessagingHosts", nativeHostName+".json"), nil
+		case "edge":
+			return filepath.Join(appData, "Microsoft", "Edge", "User Data", "NativeMessagingHosts", nativeHostName+".json"), nil
 		default:
 			return "", fmt.Errorf("unsupported browser: %s", browser)
 		}
@@ -125,6 +132,8 @@ func registerWindowsNativeHost(browser, manifestPath string) error {
 		key = `HKCU\Software\Google\Chrome\NativeMessagingHosts\` + nativeHostName
 	case "chromium":
 		key = `HKCU\Software\Chromium\NativeMessagingHosts\` + nativeHostName
+	case "edge":
+		key = `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\` + nativeHostName
 	default:
 		return fmt.Errorf("unsupported browser: %s", browser)
 	}
