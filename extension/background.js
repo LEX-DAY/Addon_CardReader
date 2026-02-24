@@ -1,4 +1,5 @@
 const HOST_NAME = "com.cardreader.bridge";
+const KEEPALIVE_PORT = "card-reader-keepalive";
 
 let port = null;
 
@@ -66,6 +67,12 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === "CARD_READER_READY" || msg?.type === "CARD_READER_PING") {
+    ensurePort();
+    sendResponse({ ok: true });
+    return;
+  }
+
   if (msg?.type !== "CARD_READER_SEND" || !msg.payload) {
     return;
   }
@@ -73,6 +80,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   ensurePort();
   port.postMessage(msg.payload);
   sendResponse({ ok: true });
+});
+
+chrome.runtime.onConnect.addListener((clientPort) => {
+  if (clientPort.name !== KEEPALIVE_PORT) {
+    return;
+  }
+
+  ensurePort();
+
+  clientPort.onMessage.addListener((msg) => {
+    if (msg?.type === "CARD_READER_PING") {
+      ensurePort();
+    }
+  });
 });
 
 ensurePort();
