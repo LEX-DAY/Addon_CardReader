@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "Card Reader Bridge",
   "version": "0.1.0",
-  "description": "Получает данные от card reader через Native Messaging и вставляет их в поле ввода на странице.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwN/5hluBuqsPMeeijZFOE2RguPnb8MObzwOIyLP0b85wIodvTjUsUGMYmNUOuhmjQJYxdD7tk2gSqQJxb8nq2NHdgOz8+gCt9p+UkfvwJ2trNlSZWROURNr4M7zBPA2/mJ2eiEZTfdaIephwbUYTaZ4CWYeUIZNjMaaq+mvmGmFK0lMibKqxmcGDze6lvz1EdR1nrt46DQwH5hlFWHGsA65FM/DCnyeZ7alWoj7vKW/921gITc1lBbJuV1Poo3EUyqzcSykWK5wFMC7nIwX1/z8qvQlwgWUY76Kpfk5AqfLpPaceTVGbktrp4CTgKgZB4cTkM13F3/XjCEciivpglQIDAQAB",
+  "description": "Reads card data via Native Messaging and pastes it into the focused input field.",
   "permissions": ["nativeMessaging", "tabs", "activeTab"],
   "background": {
     "service_worker": "background.js"

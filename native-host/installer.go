@@ -43,7 +43,8 @@ func normalizeBrowser(browser string) string {
 }
 
 func runInstall(cfg installConfig) error {
-	if cfg.ExtensionID == "" {
+	extensionID := strings.TrimSpace(cfg.ExtensionID)
+	if extensionID == "" {
 		return errors.New("--extension-id is required")
 	}
 
@@ -76,7 +77,7 @@ func runInstall(cfg installConfig) error {
 		"path":        absHost,
 		"type":        "stdio",
 		"allowed_origins": []string{
-			fmt.Sprintf("chrome-extension://%s/", cfg.ExtensionID),
+			fmt.Sprintf("chrome-extension://%s/", extensionID),
 		},
 	}
 	buf, err := json.MarshalIndent(payload, "", "  ")
@@ -95,6 +96,7 @@ func runInstall(cfg installConfig) error {
 
 	fmt.Printf("Native host manifest installed: %s\n", manifestPath)
 	fmt.Printf("Host executable path: %s\n", absHost)
+	fmt.Printf("Allowed extension ID: %s\n", extensionID)
 	return nil
 }
 
