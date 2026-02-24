@@ -20,7 +20,9 @@ type inboundMessage struct {
 }
 
 type host struct {
-	outMu sync.Mutex
+	outMu       sync.Mutex
+	serialMu    sync.Mutex
+	serialPorts map[string]struct{}
 }
 
 func main() {
@@ -35,9 +37,12 @@ func main() {
 	log.SetOutput(os.Stderr)
 	log.SetPrefix("card-reader-host ")
 
-	h := &host{}
+	h := &host{
+		serialPorts: map[string]struct{}{},
+	}
 	go h.listenTCP(9099)
 	go h.listenPCSC()
+	go h.listenSerial()
 
 	if err := h.readNativeLoop(os.Stdin); err != nil {
 		log.Fatal(err)
@@ -92,30 +97,7 @@ func (h *host) handleConn(c net.Conn) {
 		if line == "" {
 			continue
 		}
-
-		// Accept both "FORMAT:DATA" and plain raw lines from keyboard-wedge/bridge tools.
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) == 2 {
-			h.handleInput(parts[0], parts[1])
-			continue
-		}
-
-		if _, _, ok, err := parseW26Pair(line); ok {
-			if err != nil {
-				h.send(map[string]any{"error": err.Error(), "raw": line, "format": "W26"})
-				continue
-			}
-			h.handleInput("W26", line)
-			continue
-		}
-
-		if isLikelyW34Hex(line) {
-			h.handleInput("W34", line)
-			continue
-		}
-
-		log.Printf("reader raw line (no format): %q", line)
-		h.send(DecodeResult{Raw: line})
+		h.handleReaderLine("tcp", line)
 	}
 
 	if err := s.Err(); err != nil {
@@ -123,6 +105,32 @@ func (h *host) handleConn(c net.Conn) {
 	}
 
 	log.Printf("reader disconnected: %s", c.RemoteAddr())
+}
+
+func (h *host) handleReaderLine(source, line string) {
+	// Accept both "FORMAT:DATA" and plain raw lines from bridge tools.
+	parts := strings.SplitN(line, ":", 2)
+	if len(parts) == 2 {
+		h.handleInput(parts[0], parts[1])
+		return
+	}
+
+	if _, _, ok, err := parseW26Pair(line); ok {
+		if err != nil {
+			h.send(map[string]any{"error": err.Error(), "raw": line, "format": "W26"})
+			return
+		}
+		h.handleInput("W26", line)
+		return
+	}
+
+	if isLikelyW34Hex(line) {
+		h.handleInput("W34", line)
+		return
+	}
+
+	log.Printf("%s raw line (no format): %q", source, line)
+	h.send(DecodeResult{Raw: line})
 }
 
 func (h *host) handleInput(format, raw string) {
