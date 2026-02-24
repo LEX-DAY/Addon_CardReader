@@ -116,7 +116,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   const payload = message.payload;
-  const formatted = payload?.w34b?.expandedHex || payload?.w26?.cardNumber || payload?.raw || "";
+  const w26Formatted = payload?.w26
+    ? `${String(payload.w26.facility).padStart(3, "0")},${payload.w26.cardNumber}`
+    : "";
+  const formatted = payload?.w34b?.expandedHex || w26Formatted || payload?.raw || "";
   if (!formatted) {
     sendResponse({ ok: false, reason: "empty_payload" });
     return;

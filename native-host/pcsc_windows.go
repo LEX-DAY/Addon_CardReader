@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -14,7 +15,10 @@ import (
 
 const pcscPollInterval = 400 * time.Millisecond
 
-var getUIDAPDU = []byte{0xFF, 0xCA, 0x00, 0x00, 0x00}
+var getUIDAPDUs = [][]byte{
+	{0xFF, 0xCA, 0x00, 0x00, 0x00},
+	{0xFF, 0xCA, 0x00, 0x00, 0x04},
+}
 
 func (h *host) listenPCSC() {
 	ctx, err := scard.EstablishContext()
@@ -68,7 +72,20 @@ func (h *host) listenPCSC() {
 
 			if !present[reader] || lastRaw[reader] != raw {
 				log.Printf("pcsc card [%s]: %s (%s)", reader, raw, source)
-				h.send(DecodeResult{Raw: raw})
+				switch source {
+				case "uid":
+					// For ACR/Z-2 parity use W34B conversion path so output becomes e.g. 5DF50F46.
+					h.handleInput("W34B", raw)
+				case "atr":
+					if isKnownPseudoATR(raw) {
+						// Common ATR of contactless cards in CCID mode; not card-unique identifier.
+						log.Printf("pcsc atr [%s] ignored (non-unique): %s", reader, raw)
+						break
+					}
+					h.send(DecodeResult{Raw: raw})
+				default:
+					h.send(DecodeResult{Raw: raw})
+				}
 			}
 
 			present[reader] = true
@@ -99,16 +116,26 @@ func readPCSCValue(ctx *scard.Context, reader string) (raw string, source string
 		return "", "", err
 	}
 
-	rsp, err := card.Transmit(getUIDAPDU)
-	if err == nil {
-		if uid, ok := parseUIDResponse(rsp); ok {
-			return uid, "uid", nil
+	var lastUIDErr error
+	for _, apdu := range getUIDAPDUs {
+		rsp, txErr := card.Transmit(apdu)
+		if txErr == nil {
+			if uid, ok := parseUIDResponse(rsp); ok {
+				return uid, "uid", nil
+			}
+			lastUIDErr = fmt.Errorf("uid apdu % X returned unexpected status: % X", apdu, rsp)
+			continue
 		}
+		lastUIDErr = txErr
 	}
 
 	atr := strings.ToUpper(hex.EncodeToString(status.Atr))
 	if atr != "" {
 		return atr, "atr", nil
+	}
+
+	if lastUIDErr != nil {
+		return "", "", lastUIDErr
 	}
 
 	return "", "", errors.New("pcsc empty card data")
@@ -143,4 +170,9 @@ func isCardAbsentError(err error) bool {
 		isScardError(err, scard.ErrRemovedCard) ||
 		isScardError(err, scard.ErrTimeout) ||
 		isScardError(err, scard.ErrCardUnsupported)
+}
+
+func isKnownPseudoATR(raw string) bool {
+	atr := strings.ToUpper(strings.TrimSpace(raw))
+	return strings.HasPrefix(atr, "3B8F8001804F0CA00000030603")
 }

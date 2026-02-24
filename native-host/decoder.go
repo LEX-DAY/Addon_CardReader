@@ -186,6 +186,22 @@ func buildW26Bits(facility int, card int) string {
 	return leftParity + data + rightParity
 }
 
+func isLikelyW34Hex(raw string) bool {
+	norm := normalizeHex(raw)
+	if norm == "" {
+		return false
+	}
+	if len(norm) != 7 && len(norm) != 8 {
+		return false
+	}
+	for _, ch := range norm {
+		if (ch < '0' || ch > '9') && (ch < 'A' || ch > 'F') {
+			return false
+		}
+	}
+	return true
+}
+
 func reverseBits8(b byte) byte {
 	var out byte
 	for i := 0; i < 8; i++ {

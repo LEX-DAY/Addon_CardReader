@@ -100,6 +100,20 @@ func (h *host) handleConn(c net.Conn) {
 			continue
 		}
 
+		if _, _, ok, err := parseW26Pair(line); ok {
+			if err != nil {
+				h.send(map[string]any{"error": err.Error(), "raw": line, "format": "W26"})
+				continue
+			}
+			h.handleInput("W26", line)
+			continue
+		}
+
+		if isLikelyW34Hex(line) {
+			h.handleInput("W34", line)
+			continue
+		}
+
 		log.Printf("reader raw line (no format): %q", line)
 		h.send(DecodeResult{Raw: line})
 	}

@@ -41,3 +41,15 @@ func TestBuildW26BitsParity(t *testing.T) {
 		t.Fatalf("unexpected bits: %s", bits)
 	}
 }
+
+func TestIsLikelyW34Hex(t *testing.T) {
+	if !isLikelyW34Hex("5DF50F46") {
+		t.Fatal("expected valid W34 hex")
+	}
+	if !isLikelyW34Hex("46FF05D") {
+		t.Fatal("expected valid 7-char W34 hex")
+	}
+	if isLikelyW34Hex("3B8F8001804F0CA000000306030001000000006A") {
+		t.Fatal("expected ATR to be rejected as W34")
+	}
+}
