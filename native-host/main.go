@@ -84,19 +84,30 @@ func (h *host) listenTCP(port int) {
 
 func (h *host) handleConn(c net.Conn) {
 	defer c.Close()
+	log.Printf("reader connected: %s", c.RemoteAddr())
 	s := bufio.NewScanner(c)
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
 		if line == "" {
 			continue
 		}
+
+		// Accept both "FORMAT:DATA" and plain raw lines from keyboard-wedge/bridge tools.
 		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			h.send(map[string]any{"error": "line format FORMAT:DATA expected", "raw": line})
+		if len(parts) == 2 {
+			h.handleInput(parts[0], parts[1])
 			continue
 		}
-		h.handleInput(parts[0], parts[1])
+
+		log.Printf("reader raw line (no format): %q", line)
+		h.send(DecodeResult{Raw: line})
 	}
+
+	if err := s.Err(); err != nil {
+		log.Printf("reader scan error: %v", err)
+	}
+
+	log.Printf("reader disconnected: %s", c.RemoteAddr())
 }
 
 func (h *host) handleInput(format, raw string) {
@@ -120,7 +131,8 @@ func (h *host) handleInput(format, raw string) {
 		}
 		result.W26 = w26
 	default:
-		h.send(map[string]any{"error": "unsupported format", "raw": raw, "format": format})
+		log.Printf("unsupported format %q, forwarding raw value", format)
+		h.send(result)
 		return
 	}
 

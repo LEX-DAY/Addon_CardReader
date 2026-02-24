@@ -31,6 +31,7 @@ function ensurePort() {
   port = chrome.runtime.connectNative(HOST_NAME);
 
   port.onMessage.addListener((msg) => {
+    console.debug("Card Reader native message:", msg);
     broadcastToTabs(msg);
   });
 
@@ -66,15 +67,15 @@ function broadcastToTabs(msg) {
     }
   };
 
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
-    if (tabs?.length) {
-      send(tabs);
+  chrome.tabs.query({ active: true }, (tabs) => {
+    const webTabs = (tabs ?? []).filter(
+      (tab) => tab.id && /^(https?|file):/i.test(tab.url || "")
+    );
+    if (!webTabs.length) {
+      console.debug("Card Reader: no active web tabs to deliver message");
       return;
     }
-
-    chrome.tabs.query({ active: true }, (fallbackTabs) => {
-      send(fallbackTabs ?? []);
-    });
+    send(webTabs);
   });
 }
 
