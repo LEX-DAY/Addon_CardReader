@@ -37,6 +37,7 @@ func main() {
 
 	h := &host{}
 	go h.listenTCP(9099)
+	go h.listenPCSC()
 
 	if err := h.readNativeLoop(os.Stdin); err != nil {
 		log.Fatal(err)
