@@ -26,9 +26,20 @@ func parseFlags() installConfig {
 	flag.BoolVar(&cfg.DoInstall, "install", false, "install native messaging manifest for current user")
 	flag.StringVar(&cfg.ExtensionID, "extension-id", "", "Chrome extension ID for allowed_origins")
 	flag.StringVar(&cfg.HostPath, "host-path", "", "absolute path to host executable (default: current executable)")
-	flag.StringVar(&cfg.Browser, "browser", "chrome", "target browser: chrome|chromium|edge")
+	flag.StringVar(&cfg.Browser, "browser", "chrome", "target browser: chrome|chromium|edge|yandex")
 	flag.Parse()
 	return cfg
+}
+
+func normalizeBrowser(browser string) string {
+	switch strings.ToLower(strings.TrimSpace(browser)) {
+	case "msedge", "microsoft-edge", "microsoftedge":
+		return "edge"
+	case "ya", "yabrowser", "yandexbrowser", "yandex-browser":
+		return "yandex"
+	default:
+		return strings.ToLower(strings.TrimSpace(browser))
+	}
 }
 
 func runInstall(cfg installConfig) error {
@@ -49,7 +60,7 @@ func runInstall(cfg installConfig) error {
 		return fmt.Errorf("resolve host absolute path: %w", err)
 	}
 
-	browser := strings.ToLower(strings.TrimSpace(cfg.Browser))
+	browser := normalizeBrowser(cfg.Browser)
 
 	manifestPath, err := nativeManifestPath(browser)
 	if err != nil {
@@ -102,6 +113,8 @@ func nativeManifestPath(browser string) (string, error) {
 			return filepath.Join(home, ".config", "chromium", "NativeMessagingHosts", nativeHostName+".json"), nil
 		case "edge":
 			return filepath.Join(home, ".config", "microsoft-edge", "NativeMessagingHosts", nativeHostName+".json"), nil
+		case "yandex":
+			return filepath.Join(home, ".config", "yandex-browser", "NativeMessagingHosts", nativeHostName+".json"), nil
 		default:
 			return "", fmt.Errorf("unsupported browser: %s", browser)
 		}
@@ -117,6 +130,8 @@ func nativeManifestPath(browser string) (string, error) {
 			return filepath.Join(appData, "Chromium", "User Data", "NativeMessagingHosts", nativeHostName+".json"), nil
 		case "edge":
 			return filepath.Join(appData, "Microsoft", "Edge", "User Data", "NativeMessagingHosts", nativeHostName+".json"), nil
+		case "yandex":
+			return filepath.Join(appData, "Yandex", "YandexBrowser", "User Data", "NativeMessagingHosts", nativeHostName+".json"), nil
 		default:
 			return "", fmt.Errorf("unsupported browser: %s", browser)
 		}
@@ -134,6 +149,8 @@ func registerWindowsNativeHost(browser, manifestPath string) error {
 		key = `HKCU\Software\Chromium\NativeMessagingHosts\` + nativeHostName
 	case "edge":
 		key = `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\` + nativeHostName
+	case "yandex":
+		key = `HKCU\Software\Yandex\YandexBrowser\NativeMessagingHosts\` + nativeHostName
 	default:
 		return fmt.Errorf("unsupported browser: %s", browser)
 	}
