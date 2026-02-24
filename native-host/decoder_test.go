@@ -35,6 +35,16 @@ func TestDecodeW26Pair(t *testing.T) {
 	}
 }
 
+func TestDecodeW26PairFromNoisyLine(t *testing.T) {
+	res, err := decodeW26("Em-Marine[5500] 090,48676,")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Facility != 90 || res.CardNumber != 48676 {
+		t.Fatalf("unexpected values: %+v", res)
+	}
+}
+
 func TestBuildW26BitsParity(t *testing.T) {
 	bits := buildW26Bits(96, 17669)
 	if bits != "10110000001000101000001011" {
@@ -51,5 +61,17 @@ func TestIsLikelyW34Hex(t *testing.T) {
 	}
 	if isLikelyW34Hex("3B8F8001804F0CA000000306030001000000006A") {
 		t.Fatal("expected ATR to be rejected as W34")
+	}
+}
+
+func TestIsNoCardSignal(t *testing.T) {
+	if !isNoCardSignal("no card") {
+		t.Fatal("expected no card signal")
+	}
+	if !isNoCardSignal("No Card") {
+		t.Fatal("expected case-insensitive match")
+	}
+	if isNoCardSignal("090,48676") {
+		t.Fatal("unexpected no-card match for card payload")
 	}
 }

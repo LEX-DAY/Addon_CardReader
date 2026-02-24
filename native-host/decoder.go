@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -125,21 +126,19 @@ func parseW26Pair(raw string) (facility int, card int, ok bool, err error) {
 		return 0, 0, false, nil
 	}
 
-	norm = strings.ReplaceAll(norm, ";", ",")
-	norm = strings.ReplaceAll(norm, ":", ",")
-	norm = strings.ReplaceAll(norm, "/", ",")
-	norm = strings.Join(strings.Fields(norm), ",")
-
-	parts := strings.Split(norm, ",")
-	if len(parts) != 2 {
+	// Support noisy reader lines like:
+	// "Em-Marine[5500] 090,48676," -> facility=090, card=48676
+	// We intentionally use the last two numeric chunks.
+	nums := regexp.MustCompile(`\d+`).FindAllString(norm, -1)
+	if len(nums) < 2 {
 		return 0, 0, false, nil
 	}
 
-	f, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	f, err := strconv.Atoi(strings.TrimSpace(nums[len(nums)-2]))
 	if err != nil {
 		return 0, 0, true, fmt.Errorf("invalid W26 facility: %w", err)
 	}
-	c, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	c, err := strconv.Atoi(strings.TrimSpace(nums[len(nums)-1]))
 	if err != nil {
 		return 0, 0, true, fmt.Errorf("invalid W26 card number: %w", err)
 	}
@@ -184,6 +183,11 @@ func buildW26Bits(facility int, card int) string {
 	}
 
 	return leftParity + data + rightParity
+}
+
+func isNoCardSignal(raw string) bool {
+	norm := strings.ToLower(strings.TrimSpace(raw))
+	return norm == "no card" || strings.Contains(norm, "no card")
 }
 
 func isLikelyW34Hex(raw string) bool {

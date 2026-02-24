@@ -108,6 +108,11 @@ func (h *host) handleConn(c net.Conn) {
 }
 
 func (h *host) handleReaderLine(source, line string) {
+	if isNoCardSignal(line) {
+		log.Printf("%s status line ignored: %q", source, line)
+		return
+	}
+
 	// Accept both "FORMAT:DATA" and plain raw lines from bridge tools.
 	parts := strings.SplitN(line, ":", 2)
 	if len(parts) == 2 {
