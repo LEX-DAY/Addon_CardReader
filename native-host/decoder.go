@@ -55,6 +55,17 @@ func decodeW34B(raw string) (*W34BPayload, error) {
 }
 
 func decodeW26(raw string) (*W26Payload, error) {
+	if facility, card, ok, err := parseW26Pair(raw); ok {
+		if err != nil {
+			return nil, err
+		}
+		return &W26Payload{
+			Bits:       buildW26Bits(facility, card),
+			Facility:   facility,
+			CardNumber: card,
+		}, nil
+	}
+
 	bits, err := normalizeTo26Bits(raw)
 	if err != nil {
 		return nil, err
@@ -106,6 +117,73 @@ func normalizeTo26Bits(raw string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%026b", v), nil
+}
+
+func parseW26Pair(raw string) (facility int, card int, ok bool, err error) {
+	norm := strings.TrimSpace(raw)
+	if norm == "" {
+		return 0, 0, false, nil
+	}
+
+	norm = strings.ReplaceAll(norm, ";", ",")
+	norm = strings.ReplaceAll(norm, ":", ",")
+	norm = strings.ReplaceAll(norm, "/", ",")
+	norm = strings.Join(strings.Fields(norm), ",")
+
+	parts := strings.Split(norm, ",")
+	if len(parts) != 2 {
+		return 0, 0, false, nil
+	}
+
+	f, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return 0, 0, true, fmt.Errorf("invalid W26 facility: %w", err)
+	}
+	c, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return 0, 0, true, fmt.Errorf("invalid W26 card number: %w", err)
+	}
+	if f < 0 || f > 255 {
+		return 0, 0, true, fmt.Errorf("W26 facility out of range: %d", f)
+	}
+	if c < 0 || c > 65535 {
+		return 0, 0, true, fmt.Errorf("W26 card number out of range: %d", c)
+	}
+
+	return f, c, true, nil
+}
+
+func buildW26Bits(facility int, card int) string {
+	data := fmt.Sprintf("%08b%016b", facility, card)
+	left := data[:12]
+	right := data[12:]
+
+	leftOnes := 0
+	for _, ch := range left {
+		if ch == '1' {
+			leftOnes++
+		}
+	}
+
+	rightOnes := 0
+	for _, ch := range right {
+		if ch == '1' {
+			rightOnes++
+		}
+	}
+
+	// Bit 1: even parity over first 12 data bits.
+	leftParity := "0"
+	if leftOnes%2 != 0 {
+		leftParity = "1"
+	}
+	// Bit 26: odd parity over last 12 data bits.
+	rightParity := "0"
+	if rightOnes%2 == 0 {
+		rightParity = "1"
+	}
+
+	return leftParity + data + rightParity
 }
 
 func reverseBits8(b byte) byte {

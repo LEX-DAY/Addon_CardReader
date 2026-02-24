@@ -118,7 +118,21 @@ func (h *host) handleInput(format, raw string) {
 
 	switch format {
 	case "W34", "W34B":
-		w34, err := decodeW34B(raw)
+		var (
+			w34 *W34BPayload
+			err error
+		)
+		if format == "W34" {
+			norm := normalizeHex(raw)
+			if norm == "" {
+				h.send(map[string]any{"error": "empty hex", "raw": raw, "format": format})
+				return
+			}
+			// Z-2 and similar readers often provide W34 in the final display form already.
+			w34 = &W34BPayload{InputHex: norm, ExpandedHex: norm}
+		} else {
+			w34, err = decodeW34B(raw)
+		}
 		if err != nil {
 			h.send(map[string]any{"error": err.Error(), "raw": raw, "format": format})
 			return
