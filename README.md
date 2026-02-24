@@ -8,9 +8,10 @@
   - получает данные от native host;
   - автоматически вставляет считанное значение в активное поле `<input>` / `<textarea>` на странице.
 - **Native host (Go)**:
-  - принимает данные от внешнего считывателя по TCP (`localhost:9099`), формат строки: `FORMAT:DATA`;
+  - принимает данные от считывателей по TCP (`localhost:9099`), PC/SC (ACR1252), USB-Serial (Z-2);
   - поддерживает форматы `W34B` и `W26`;
   - отправляет разобранный payload в расширение;
+  - игнорирует служебные строки типа `no card`;
   - умеет **самоустанавливаться** (`--install`) — создает Native Messaging manifest для пользователя.
 
 ## Преобразования
@@ -33,41 +34,75 @@
 - `extension/` — код расширения (JS)
 - `native-host/` — Go native messaging host
 
-## ACR1252: можно ли без дополнительных приложений на ПК?
+## Инструкция для пользователей (без установки Go)
 
-Короткий ответ: **в большинстве случаев нет**.
+### 1) Что передать пользователю
 
-- ACR1252 обычно работает через CCID/PCSC стек драйверов ОС, а браузерное расширение не имеет прямого доступа к такому интерфейсу.
-- Поэтому нужен локальный bridge-процесс (в этом проекте это `native-host/cardreader-host`/`cardreader-host.exe`) и Native Messaging.
-- При этом вручную запускать host каждый раз не нужно: Chrome поднимает его автоматически при `connectNative`.
+1. `cardreader-host.exe`
+2. папку `extension/`
 
-Если считыватель переключен в keyboard-wedge режим (эмуляция клавиатуры), можно работать без host, но тогда теряется логика декодирования в Go и контроль протокола.
-
-## Готовый exe для пользователя (без установки Go)
-
-Вы можете собрать exe один раз и отдать пользователю архив:
+`cardreader-host.exe` собирается один раз:
 
 ```bash
 cd native-host
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o cardreader-host.exe .
 ```
 
-Пользователю нужен только:
-1. `cardreader-host.exe`
-2. папка `extension/`
+### 2) Установка у пользователя
 
-### Установка на ПК пользователя
-
-1. Скопировать `cardreader-host.exe`, например в `C:\CardReader\cardreader-host.exe`
-2. Загрузить расширение в Chrome через `chrome://extensions` -> **Load unpacked** (`extension/`)
-3. Узнать `EXTENSION_ID` расширения
-4. Один раз выполнить установку manifest:
+1. Скопировать `cardreader-host.exe` в постоянный путь, например `C:\CardReader\cardreader-host.exe`
+2. Открыть страницу расширений:
+   - Chrome: `chrome://extensions`
+   - Edge: `edge://extensions`
+   - Yandex Browser: `browser://extensions`
+3. Включить **Developer mode**
+4. Нажать **Load unpacked** и выбрать папку `extension/`
+5. Скопировать `ID` установленного расширения
+6. Один раз выполнить установку native host:
 
 ```powershell
-C:\CardReader\cardreader-host.exe --install --extension-id cjhjdbhjocikbieijgiamhekhplaefge --browser yandex
+C:\CardReader\cardreader-host.exe --install --extension-id <EXTENSION_ID> --browser yandex
 ```
 
-После этого host будет запускаться Chrome автоматически.
+Для других браузеров:
+
+```powershell
+C:\CardReader\cardreader-host.exe --install --extension-id <EXTENSION_ID> --browser chrome
+C:\CardReader\cardreader-host.exe --install --extension-id <EXTENSION_ID> --browser edge
+```
+
+7. Перезапустить браузер и обновить страницу с полем ввода
+
+### 3) Как работает с ридерами
+
+- **ACR1252 (PC/SC)**: читается напрямую через `winscard` (без внешнего TCP-процесса).
+- **Z-2 (RD_ALL / Z-2 USB)**:
+  - поддерживаются строки вида `Em-Marine[5500] 090,48676,` (вставляется `090,48676`);
+  - строка `no card` игнорируется;
+  - при TCP-режиме поддерживаются также `W26:096,17669` и `W34:5DF50F46`.
+
+### 4) Быстрая проверка
+
+Откройте обычный сайт с `<input>`, поставьте курсор в поле и отправьте тест:
+
+```powershell
+$client = [System.Net.Sockets.TcpClient]::new("127.0.0.1", 9099)
+$stream = $client.GetStream()
+$bytes = [Text.Encoding]::ASCII.GetBytes("W26:096,17669`n")
+$stream.Write($bytes, 0, $bytes.Length)
+$client.Close()
+```
+
+Ожидаемый результат: в активное поле вставится `096,17669`.
+
+### 5) Если не работает
+
+1. Проверить, что host установлен для текущего `EXTENSION_ID` и браузера:
+```powershell
+C:\CardReader\cardreader-host.exe --install --extension-id <EXTENSION_ID> --browser yandex
+```
+2. Перезагрузить расширение на странице расширений.
+3. Открыть консоль `service worker` расширения и проверить наличие лога `Card Reader native message: ...`.
 
 ## Локальный запуск для разработки
 
@@ -76,7 +111,7 @@ C:\CardReader\cardreader-host.exe --install --extension-id cjhjdbhjocikbieijgiam
 ```bash
 cd native-host
 go test ./...
-go build -o cardreader-host .
+go build -o cardreader-host.exe .
 ```
 
 ### 2) Ручной Chrome Native Messaging manifest (альтернатива --install)
