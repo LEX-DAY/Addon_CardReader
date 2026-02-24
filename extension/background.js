@@ -19,7 +19,7 @@ function logNativeHostHint(errorMessage) {
   const extensionId = chrome.runtime.id;
   const browser = detectBrowserForInstallHint();
   console.error(
-    `Install native host once for this browser profile. Example: cardreader-host.exe --install --browser ${browser} (extension id: ${extensionId})`
+    `Install native host once for this browser profile. Example: cardreader-host.exe --install --extension-id ${extensionId} --browser ${browser}`
   );
 }
 
