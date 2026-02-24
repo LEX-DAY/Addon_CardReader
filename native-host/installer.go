@@ -141,24 +141,29 @@ func nativeManifestPath(browser string) (string, error) {
 }
 
 func registerWindowsNativeHost(browser, manifestPath string) error {
-	var key string
+	var keys []string
 	switch browser {
 	case "chrome":
-		key = `HKCU\Software\Google\Chrome\NativeMessagingHosts\` + nativeHostName
+		keys = []string{`HKCU\Software\Google\Chrome\NativeMessagingHosts\` + nativeHostName}
 	case "chromium":
-		key = `HKCU\Software\Chromium\NativeMessagingHosts\` + nativeHostName
+		keys = []string{`HKCU\Software\Chromium\NativeMessagingHosts\` + nativeHostName}
 	case "edge":
-		key = `HKCU\Software\Microsoft\Edge\NativeMessagingHosts\` + nativeHostName
+		keys = []string{`HKCU\Software\Microsoft\Edge\NativeMessagingHosts\` + nativeHostName}
 	case "yandex":
-		key = `HKCU\Software\Yandex\YandexBrowser\NativeMessagingHosts\` + nativeHostName
+		keys = []string{
+			`HKCU\Software\Yandex\YandexBrowser\NativeMessagingHosts\` + nativeHostName,
+			`HKCU\Software\Google\Chrome\NativeMessagingHosts\` + nativeHostName,
+		}
 	default:
 		return fmt.Errorf("unsupported browser: %s", browser)
 	}
 
-	cmd := exec.Command("reg", "add", key, "/ve", "/t", "REG_SZ", "/d", manifestPath, "/f")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("register host in windows registry: %w (%s)", err, string(out))
+	for _, key := range keys {
+		cmd := exec.Command("reg", "add", key, "/ve", "/t", "REG_SZ", "/d", manifestPath, "/f")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("register host in windows registry: %w (%s)", err, string(out))
+		}
 	}
 	return nil
 }

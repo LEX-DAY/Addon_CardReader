@@ -63,7 +63,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o cardreader-host.exe .
 4. Один раз выполнить установку manifest:
 
 ```powershell
-C:\CardReader\cardreader-host.exe --install --extension-id <EXTENSION_ID> --browser chrome
+C:\CardReader\cardreader-host.exe --install --extension-id cjhjdbhjocikbieijgiamhekhplaefge --browser yandex
 ```
 
 После этого host будет запускаться Chrome автоматически.
