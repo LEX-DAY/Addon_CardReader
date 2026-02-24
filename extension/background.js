@@ -47,14 +47,34 @@ function ensurePort() {
 }
 
 function broadcastToTabs(msg) {
-  chrome.tabs.query({}, (tabs) => {
+  const send = (tabs) => {
     for (const tab of tabs) {
       if (!tab.id) continue;
       chrome.tabs.sendMessage(tab.id, {
         type: "CARD_READER_DATA",
         payload: msg,
+      }, (resp) => {
+        const err = chrome.runtime.lastError;
+        if (err) {
+          console.debug(`Card Reader tab ${tab.id}: ${err.message}`);
+          return;
+        }
+        if (!resp?.ok) {
+          console.debug(`Card Reader tab ${tab.id}:`, resp?.reason ?? "no response");
+        }
       });
     }
+  };
+
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+    if (tabs?.length) {
+      send(tabs);
+      return;
+    }
+
+    chrome.tabs.query({ active: true }, (fallbackTabs) => {
+      send(fallbackTabs ?? []);
+    });
   });
 }
 

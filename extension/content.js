@@ -42,7 +42,7 @@ function pickTargetInput() {
   }
 
   return document.querySelector(
-    "input:not([type='hidden']), textarea, [contenteditable='true']"
+    "input:not([type='hidden']):not([disabled]):not([readonly]), textarea:not([disabled]):not([readonly]), [contenteditable='true']"
   );
 }
 
@@ -76,7 +76,7 @@ function injectValue(text) {
   const target = pickTargetInput();
   if (!target) {
     console.warn("Card Reader: input field not found");
-    return;
+    return { ok: false, reason: "no_target" };
   }
 
   if (target instanceof HTMLElement) {
@@ -97,17 +97,20 @@ function injectValue(text) {
       target.dispatchEvent(new Event("input", { bubbles: true }));
     }
     target.dispatchEvent(new Event("change", { bubbles: true }));
-    return;
+    return { ok: true, reason: "input_set" };
   }
 
   if (target.isContentEditable) {
     target.textContent = text;
     target.dispatchEvent(new Event("input", { bubbles: true }));
     target.dispatchEvent(new Event("change", { bubbles: true }));
+    return { ok: true, reason: "contenteditable_set" };
   }
+
+  return { ok: false, reason: "unsupported_target" };
 }
 
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type !== "CARD_READER_DATA") {
     return;
   }
@@ -115,10 +118,15 @@ chrome.runtime.onMessage.addListener((message) => {
   const payload = message.payload;
   const formatted = payload?.w34b?.expandedHex || payload?.w26?.cardNumber || payload?.raw || "";
   if (!formatted) {
+    sendResponse({ ok: false, reason: "empty_payload" });
     return;
   }
 
-  injectValue(String(formatted));
+  try {
+    sendResponse(injectValue(String(formatted)));
+  } catch (e) {
+    sendResponse({ ok: false, reason: e?.message || "inject_failed" });
+  }
 });
 
 connectKeepalive();
