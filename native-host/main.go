@@ -24,6 +24,14 @@ type host struct {
 }
 
 func main() {
+	cfg := parseFlags()
+	if cfg.DoInstall {
+		if err := runInstall(cfg); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
 	log.SetOutput(os.Stderr)
 	log.SetPrefix("card-reader-host ")
 

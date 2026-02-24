@@ -10,7 +10,8 @@
 - **Native host (Go)**:
   - принимает данные от внешнего считывателя по TCP (`localhost:9099`), формат строки: `FORMAT:DATA`;
   - поддерживает форматы `W34B` и `W26`;
-  - отправляет разобранный payload в расширение.
+  - отправляет разобранный payload в расширение;
+  - умеет **самоустанавливаться** (`--install`) — создает Native Messaging manifest для пользователя.
 
 ## Преобразования
 
@@ -36,12 +37,38 @@
 Короткий ответ: **в большинстве случаев нет**.
 
 - ACR1252 обычно работает через CCID/PCSC стек драйверов ОС, а браузерное расширение не имеет прямого доступа к такому интерфейсу.
-- Поэтому нужен локальный bridge-процесс (в этом проекте это `native-host/cardreader-host`) и Native Messaging.
+- Поэтому нужен локальный bridge-процесс (в этом проекте это `native-host/cardreader-host`/`cardreader-host.exe`) и Native Messaging.
 - При этом вручную запускать host каждый раз не нужно: Chrome поднимает его автоматически при `connectNative`.
 
 Если считыватель переключен в keyboard-wedge режим (эмуляция клавиатуры), можно работать без host, но тогда теряется логика декодирования в Go и контроль протокола.
 
-## Локальный запуск
+## Готовый exe для пользователя (без установки Go)
+
+Вы можете собрать exe один раз и отдать пользователю архив:
+
+```bash
+cd native-host
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o cardreader-host.exe .
+```
+
+Пользователю нужен только:
+1. `cardreader-host.exe`
+2. папка `extension/`
+
+### Установка на ПК пользователя
+
+1. Скопировать `cardreader-host.exe`, например в `C:\CardReader\cardreader-host.exe`
+2. Загрузить расширение в Chrome через `chrome://extensions` -> **Load unpacked** (`extension/`)
+3. Узнать `EXTENSION_ID` расширения
+4. Один раз выполнить установку manifest:
+
+```powershell
+C:\CardReader\cardreader-host.exe --install --extension-id <EXTENSION_ID> --browser chrome
+```
+
+После этого host будет запускаться Chrome автоматически.
+
+## Локальный запуск для разработки
 
 ### 1) Сборка native host
 
@@ -51,7 +78,7 @@ go test ./...
 go build -o cardreader-host .
 ```
 
-### 2) Chrome Native Messaging manifest
+### 2) Ручной Chrome Native Messaging manifest (альтернатива --install)
 
 Создайте файл, например:
 
@@ -68,8 +95,6 @@ go build -o cardreader-host .
   ]
 }
 ```
-
-> Укажите реальный `EXTENSION_ID` после загрузки unpacked extension.
 
 ### 3) Загрузка расширения
 
