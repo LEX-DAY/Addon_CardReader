@@ -11,7 +11,7 @@
 3. Скопируйте `ID` расширения и выполните в PowerShell:
 
 ```powershell
-C:\CardReader\cardreader-host.exe --install --extension-id <EXTENSION_ID> --browser <chrome|edge|yandex>
+C:\CardReader\cardreader-host.exe --install --extension-id kkffgncccmjpphlemnbllmbmjkchoodf --browser <chrome|edge|yandex>
 ```
 
 ## Запуск
